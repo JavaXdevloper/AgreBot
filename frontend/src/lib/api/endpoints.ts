@@ -1,0 +1,17 @@
+export const ENDPOINTS = {
+  HEALTH: '/api/health',
+  STATUS: '/api/status',
+  AUTH_UNLOCK: '/api/auth/unlock',
+  AUTH_LOCK: '/api/auth/lock',
+  CAMERA_CONNECT: '/api/camera/connect',
+  CAMERA_DISCONNECT: '/api/camera/disconnect',
+  VIDEO_STREAM: '/api/video/stream',
+  DETECTIONS_LATEST: '/api/detections/latest',
+  DETECTIONS: '/api/detections',
+  DETECTIONS_LABELS: '/api/detections/labels',
+  EVENTS: '/api/events',
+  SESSIONS: '/api/sessions',
+  REPLAY_START: '/api/replay/start',
+  REPLAY_STOP: '/api/replay/stop',
+  ROVER_COMMAND: '/api/rover/command',
+} as const;

@@ -1,0 +1,21 @@
+[Unit]
+Description=Agri Rover Inspection Dashboard and Control Backend
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/AgreBot/backend
+EnvironmentFile=/home/pi/AgreBot/backend/.env
+ExecStart=/home/pi/AgreBot/backend/venv/bin/python run.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/pi/AgreBot/backend/instance/logs/systemd.log
+StandardError=append:/home/pi/AgreBot/backend/instance/logs/systemd_err.log
+
+# Graceful termination sends SIGTERM allowing RoverSafety emergency stop
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
