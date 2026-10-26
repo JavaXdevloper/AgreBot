@@ -4,14 +4,27 @@ import { ENDPOINTS } from '../../lib/api/endpoints';
 import { createMockClient } from '../../lib/api/mock';
 import { formatTime } from '../../lib/formatters';
 import type { SystemEvent, Page } from '../../lib/api/types';
-import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronUp, Bell, RefreshCw } from 'lucide-react';
+import { 
+  AlertCircle, 
+  AlertTriangle, 
+  Info, 
+  ChevronDown, 
+  ChevronUp, 
+  Clock, 
+  RefreshCw,
+  CheckCircle2,
+  Filter
+} from 'lucide-react';
 
 const IS_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 const mockClient = IS_MOCK ? createMockClient() : null;
 
+type SeverityFilter = 'all' | 'warning' | 'error';
+
 export function SystemEventsPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [events, setEvents] = useState<SystemEvent[]>([]);
+  const [filter, setFilter] = useState<SeverityFilter>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,9 +36,9 @@ export function SystemEventsPanel() {
     try {
       let res: Page<SystemEvent>;
       if (IS_MOCK && mockClient) {
-        res = await mockClient.getEvents({ limit: '20' });
+        res = await mockClient.getEvents({ limit: '50' });
       } else {
-        res = await apiFetch<Page<SystemEvent>>(`${ENDPOINTS.EVENTS}?limit=20`, {
+        res = await apiFetch<Page<SystemEvent>>(`${ENDPOINTS.EVENTS}?limit=50`, {
           timeoutMs: 4000,
         });
       }
@@ -66,73 +79,153 @@ export function SystemEventsPanel() {
     };
   }, [isOpen, fetchEvents]);
 
+  const filteredEvents = events.filter((e) => {
+    if (filter === 'warning') return e.severity === 'warning';
+    if (filter === 'error') return e.severity === 'error';
+    return true;
+  });
+
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-      {/* Toggle header */}
+    <div className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl overflow-hidden shadow-sm">
+      {/* Toggle Header */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-slate-800/40 transition"
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-[var(--surface-2)] transition select-none"
+        aria-expanded={isOpen}
+        aria-label="System Events Log"
       >
-        <div className="flex items-center gap-2.5">
-          <Bell className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-slate-100 text-xs font-mono uppercase tracking-wider">
-            System Events Log
-          </span>
-          <span className="text-[10px] bg-slate-800 border border-slate-700 text-emerald-400 px-2 py-0.5 rounded-full font-mono">
-            {events.length}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-[var(--surface-2)] flex items-center justify-center text-[var(--brand-primary)]">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[var(--text-primary)] text-sm">
+                System Events Log
+              </span>
+              <span className="text-[10px] bg-[var(--surface-2)] border border-[var(--border-subtle)] text-[var(--text-muted)] px-2 py-0.5 rounded-full font-mono">
+                {events.length}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              Real-time hardware status changes, warnings, and errors
+            </p>
+          </div>
         </div>
-        {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />
+          )}
+        </div>
       </button>
 
-      {/* Collapsible Content */}
+      {/* Collapsible Timeline Content */}
       {isOpen && (
-        <div className="p-4 pt-0 border-t border-slate-800/80 space-y-3">
-          <div className="flex items-center justify-between pt-2.5">
-            <span className="text-[11px] font-mono text-slate-400">Auto-polls every 10s</span>
-            <button
-              onClick={() => void fetchEvents()}
-              disabled={loading}
-              className="text-[11px] font-mono flex items-center gap-1.5 text-slate-400 hover:text-white disabled:opacity-40"
-            >
-              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-              Sync
-            </button>
+        <div className="p-4 pt-0 border-t border-[var(--border-subtle)] space-y-3.5">
+          {/* Controls: Filter chips & Refresh button */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
+            <div className="flex items-center gap-1.5 text-xs">
+              <Filter className="w-3.5 h-3.5 text-[var(--text-muted)] mr-1" />
+              {(['all', 'warning', 'error'] as const).map((sev) => (
+                <button
+                  key={sev}
+                  onClick={() => setFilter(sev)}
+                  className={`px-2.5 py-1 rounded-lg capitalize font-medium transition ${
+                    filter === sev
+                      ? 'bg-[var(--brand-primary)] text-[var(--text-on-brand)]'
+                      : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {sev === 'all' ? 'All events' : `${sev}s`}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+              <span className="text-[11px]">Auto-updates</span>
+              <button
+                onClick={() => void fetchEvents()}
+                disabled={loading}
+                className="flex items-center gap-1 text-[var(--text-primary)] hover:underline disabled:opacity-40"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
 
+          {/* Error Banner */}
           {error && (
-            <div role="alert" className="p-2.5 bg-rose-950/40 text-rose-300 text-xs rounded-xl border border-rose-500/30">
-              {error}
+            <div role="alert" className="p-3 bg-red-500/10 border border-[var(--danger-border)] text-[var(--danger-text)] text-xs rounded-xl flex items-center justify-between">
+              <span>Failed to fetch events: {error}</span>
+              <button
+                onClick={() => void fetchEvents()}
+                className="px-2 py-0.5 rounded bg-[var(--surface-1)] text-xs border border-[var(--border-subtle)]"
+              >
+                Retry
+              </button>
             </div>
           )}
 
-          <div className="space-y-1.5 max-h-60 overflow-y-auto">
-            {events.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center font-mono">No recent system events</p>
+          {/* Vertical Timeline */}
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {filteredEvents.length === 0 ? (
+              <div className="py-8 text-center bg-[var(--surface-2)] rounded-xl border border-[var(--border-subtle)]">
+                <CheckCircle2 className="w-6 h-6 text-[var(--success-solid)] mx-auto mb-1.5 opacity-80" />
+                <p className="text-xs font-semibold text-[var(--text-primary)]">
+                  No events yet — that's good
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                  Subsystems report events here when warnings or status transitions occur.
+                </p>
+              </div>
             ) : (
-              events.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="flex items-start gap-2.5 text-xs p-2.5 rounded-xl bg-slate-900/60 border border-slate-800"
-                >
-                  {evt.severity === 'error' ? (
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                  ) : evt.severity === 'warning' ? (
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-slate-400 font-mono uppercase tracking-wider text-[10px] mr-1.5">
-                      [{evt.component}]
-                    </span>
-                    <span className="text-slate-200">{evt.message}</span>
+              filteredEvents.map((evt) => {
+                const isError = evt.severity === 'error';
+                const isWarning = evt.severity === 'warning';
+
+                return (
+                  <div
+                    key={evt.id}
+                    className="flex items-start gap-2.5 text-xs p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-subtle)] hover:border-[var(--text-muted)] transition"
+                  >
+                    {/* Severity dot / icon */}
+                    <div className="mt-0.5 shrink-0">
+                      {isError ? (
+                        <div className="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center text-[var(--danger-text)]">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        </div>
+                      ) : isWarning ? (
+                        <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                          <Info className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Component Chip & Message */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--surface-3)] text-[var(--text-muted)]">
+                          {evt.component}
+                        </span>
+                        <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                          {formatTime(evt.occurred_at)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--text-primary)] leading-relaxed">
+                        {evt.message}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 whitespace-nowrap">
-                    {formatTime(evt.occurred_at)}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

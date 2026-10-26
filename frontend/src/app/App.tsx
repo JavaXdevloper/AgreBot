@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { AppHeader } from '../components/layout/AppHeader';
-import { Banners } from '../components/layout/Banners';
-import { NavigationSidebar, NavTab } from '../components/layout/NavigationSidebar';
+import { useState, useEffect } from 'react';
+import { ModernTopBar } from '../components/layout/ModernTopBar';
+import { ModernLeftRail, ModernBottomTabs, MainNavPage } from '../components/layout/ModernNavigation';
+import { ModernBanners } from '../components/layout/ModernBanners';
 import { DeviceStatusGrid } from '../components/status/DeviceStatusGrid';
 import { CameraConnectionForm } from '../components/camera/CameraConnectionForm';
 import { ProcessedVideoPanel } from '../components/camera/ProcessedVideoPanel';
+import { ConnectCameraSheet } from '../components/camera/ConnectCameraSheet';
 import { LatestDetectionCard } from '../components/detections/LatestDetectionCard';
 import { DetectionHistoryTable } from '../components/detections/DetectionHistoryTable';
 import { SystemEventsPanel } from '../components/events/SystemEventsPanel';
@@ -12,9 +13,12 @@ import { PinUnlockDialog } from '../components/controls/PinUnlockDialog';
 import { RoverControlPanel } from '../components/controls/RoverControlPanel';
 import { ReplayControlPanel } from '../components/controls/ReplayControlPanel';
 import { MockScenarioSelector } from '../components/dev/MockScenarioSelector';
+import { UiKit } from '../components/dev/UiKit';
 import { useSystemStatus } from '../hooks/useSystemStatus';
 import { useLatestDetection } from '../hooks/useLatestDetection';
+import { useAuth } from '../hooks/useAuth';
 import type { ModeBadge } from '../components/layout/AppHeader';
+import { STRINGS } from '../lib/strings';
 
 const IS_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
@@ -31,9 +35,54 @@ function getClockDiff(statusTimestamp: string | null): {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export function App() {
-  const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
-  const { status, isOffline, lastUpdated, error: statusError, refresh } = useSystemStatus();
+  const isUiKit = window.location.hash === '#/ui-kit';
+  
+  // Theme state synced with data-theme attribute
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const stored = localStorage.getItem('agri_rover_theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch {
+      // Fallback
+    }
+    return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('agri_rover_theme', theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  // 3-page navigation: drive, history, system
+  const [currentPage, setCurrentPage] = useState<MainNavPage>(() => {
+    const hash = window.location.hash;
+    if (hash === '#/history') return 'history';
+    if (hash === '#/system') return 'system';
+    return 'drive';
+  });
+
+  const handlePageChange = (page: MainNavPage) => {
+    setCurrentPage(page);
+    window.location.hash = `#/${page}`;
+  };
+
+  const { status, isOffline, error: statusError, refresh } = useSystemStatus();
   const { detection: latestDetection } = useLatestDetection(status?.camera?.state);
+  const { lock } = useAuth();
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [showCameraSheet, setShowCameraSheet] = useState(false);
+
+  if (isUiKit) {
+    return <UiKit />;
+  }
 
   // ─── Derived state ──────────────────────────────────────────────────────────
   const isReplayActive =
@@ -70,86 +119,85 @@ export function App() {
   const cameraError = status?.camera?.error ?? null;
   const modelState = status?.model?.state ?? 'not_configured';
   const modelError = status?.model?.error ?? null;
+  const arduinoState = status?.arduino?.state ?? 'disconnected';
   const mode = status?.mode ?? 'live';
   const replayAvailable = status?.replay?.available ?? false;
 
+  const handleToggleLock = async () => {
+    if (isOperatorUnlocked) {
+      try {
+        await lock();
+        void refresh();
+      } catch {
+        // error handled
+      }
+    } else {
+      setShowPinModal(true);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#070a10] text-slate-100 flex flex-col md:flex-row font-sans antialiased">
-      {/* Navigation Sidebar */}
-      <NavigationSidebar
-        currentTab={currentTab}
-        onTabChange={setCurrentTab}
+    <div className="min-h-screen bg-bg text-text flex flex-col font-sans antialiased pb-16 md:pb-0">
+      {/* Dev-only Mock Scenario Selector */}
+      {IS_MOCK && (
+        <MockScenarioSelector onScenarioChange={() => void refresh()} />
+      )}
+
+      {/* Global persistent status banners */}
+      <ModernBanners
+        isMockActive={IS_MOCK}
+        isBackendOffline={isOffline}
+        isReplayActive={isReplayActive}
+        clockWarning={clockWarning}
+        clockDiffMinutes={clockCheck.diffMinutes}
+      />
+
+      {/* Persistent modern top bar */}
+      <ModernTopBar
         modeBadge={modeBadge}
-        lastUpdated={lastUpdated}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        isUnlocked={isOperatorUnlocked}
+        onToggleLock={handleToggleLock}
+        cameraState={cameraState}
+        modelState={modelState}
+        arduinoState={arduinoState}
         roverControl={roverControl}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Dev-only Mock Scenario Selector */}
-        {IS_MOCK && (
-          <MockScenarioSelector onScenarioChange={() => void refresh()} />
-        )}
+      {/* Main App Body with Rail (Desktop) & Bottom Navigation (Mobile) */}
+      <div className="flex-1 flex min-w-0">
+        <ModernLeftRail currentPage={currentPage} onPageChange={handlePageChange} />
 
-        {/* Global persistent banners */}
-        <Banners
-          isMockActive={IS_MOCK}
-          isBackendOffline={isOffline}
-          isReplayActive={isReplayActive}
-          clockWarning={clockWarning}
-          clockDiffMinutes={clockCheck.diffMinutes}
-        />
-
-        {/* Header */}
-        <AppHeader
-          modeBadge={modeBadge}
-          lastUpdated={lastUpdated}
-          isMockActive={IS_MOCK}
-        />
-
-        {/* Page Views based on Active Tab */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
           {statusError && !isOffline && (
             <div
               role="status"
-              className="p-3 bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs rounded-xl flex items-center justify-between"
+              className="p-3 bg-warn/10 border border-warn/30 text-warn text-xs rounded-input flex items-center justify-between"
             >
               <span>Temporary status check failure: {statusError.message}</span>
               <button
                 onClick={() => void refresh()}
-                className="text-[11px] bg-amber-900/60 hover:bg-amber-900 px-2.5 py-1 rounded font-mono border border-amber-700 text-amber-200"
+                className="text-xs bg-warn/20 hover:bg-warn/30 px-2.5 py-1 rounded-input font-medium border border-warn/40 text-warn"
               >
                 Retry
               </button>
             </div>
           )}
 
-          {/* TAB 1: LIVE COCKPIT (Main Dashboard) */}
-          {currentTab === 'dashboard' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* 2 Cols: Optical Video Stream */}
-                <div className="lg:col-span-2 space-y-6">
+          {/* PAGE 1: DRIVE (Video + Controls Combined) */}
+          {currentPage === 'drive' && (
+            <div className="space-y-6 max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left (7 cols): Primary Video Stage & Camera Form */}
+                <div className="lg:col-span-7 space-y-6">
                   <ProcessedVideoPanel
                     cameraState={cameraState}
                     mode={mode}
                     isOffline={isOffline}
                     lastFrameAt={lastFrameAt}
-                  />
-                </div>
-
-                {/* 1 Col: Quick Auth & Realtime Detection Snapshot */}
-                <div className="space-y-6">
-                  <LatestDetectionCard
-                    detection={latestDetection}
-                    modelState={modelState}
-                    modelError={modelError}
-                  />
-
-                  <PinUnlockDialog
-                    roverControl={isOperatorUnlocked ? 'ready' : roverControl}
-                    isOffline={isOffline}
-                    onSuccess={() => void refresh()}
+                    fps={fps}
+                    onOpenConnectSheet={() => setShowCameraSheet(true)}
                   />
 
                   <CameraConnectionForm
@@ -162,62 +210,54 @@ export function App() {
                     onRefreshStatus={() => void refresh()}
                   />
                 </div>
-              </div>
 
-              {/* System Diagnostics Grid */}
-              <section aria-labelledby="status-heading">
-                <DeviceStatusGrid status={status} isOffline={isOffline} />
-              </section>
-            </div>
-          )}
-
-          {/* TAB 2: ROVER DRIVE PAD & CONTROLS */}
-          {currentTab === 'controls' && (
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <RoverControlPanel
-                  roverControl={roverControl}
-                  roverReason={roverReason}
-                  mode={mode}
-                  isOffline={isOffline}
-                  lastCommand={lastCommand}
-                  lastCommandAt={lastCommandAt}
-                  onCommandDispatched={() => void refresh()}
-                />
-
-                <div className="space-y-6">
-                  <PinUnlockDialog
+                {/* Right (5 cols): Drive Pad, STOP, and Latest Detection */}
+                <div className="lg:col-span-5 space-y-6">
+                  <RoverControlPanel
                     roverControl={roverControl}
+                    roverReason={roverReason}
+                    mode={mode}
                     isOffline={isOffline}
-                    onSuccess={() => void refresh()}
+                    lastCommand={lastCommand}
+                    lastCommandAt={lastCommandAt}
+                    onCommandDispatched={() => void refresh()}
                   />
 
-                  <div className="glass-panel rounded-2xl p-5 shadow-2xl space-y-3">
-                    <h3 className="text-xs font-mono font-bold tracking-wider uppercase text-slate-300">
-                      Drive Safety Rules (D-01)
-                    </h3>
-                    <ul className="text-xs text-slate-400 space-y-2 list-disc list-inside">
-                      <li>Hold-to-drive continuous heartbeat pulse (200 ms).</li>
-                      <li>Releasing the button or losing focus sends emergency STOP.</li>
-                      <li>Single active direction constraint: no simultaneous turning/reversing.</li>
-                      <li>Emergency STOP button and Space/Esc keys bypass all locks.</li>
-                    </ul>
-                  </div>
+                  <LatestDetectionCard
+                    detection={latestDetection}
+                    modelState={modelState}
+                    modelError={modelError}
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 3: DETECTION LOGS & HISTORY */}
-          {currentTab === 'history' && (
-            <div className="space-y-6">
+          {/* PAGE 2: HISTORY (Detections database, filters & pagination) */}
+          {currentPage === 'history' && (
+            <div className="max-w-6xl mx-auto space-y-6">
               <DetectionHistoryTable />
             </div>
           )}
 
-          {/* TAB 4: DIAGNOSTICS & REPLAY */}
-          {currentTab === 'replay' && (
-            <div className="max-w-3xl mx-auto space-y-6">
+          {/* PAGE 3: SYSTEM (Diagnostics, Replay & Events) */}
+          {currentPage === 'system' && (
+            <div className="max-w-5xl mx-auto space-y-6">
+              <div className="p-4 rounded-card bg-surface-1 border border-border flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-text">{STRINGS.system.title}</h2>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {cameraState === 'error' || arduinoState === 'error' || modelState === 'error'
+                      ? STRINGS.system.attentionSummary(1)
+                      : STRINGS.system.healthySummary}
+                  </p>
+                </div>
+              </div>
+
+              {/* Hardware diagnostics grid */}
+              <DeviceStatusGrid status={status} isOffline={isOffline} />
+
+              {/* Replay control */}
               <ReplayControlPanel
                 mode={mode}
                 replayAvailable={replayAvailable}
@@ -228,18 +268,51 @@ export function App() {
                 onRefreshStatus={() => void refresh()}
               />
 
-              <DeviceStatusGrid status={status} isOffline={isOffline} />
-            </div>
-          )}
-
-          {/* TAB 5: SYSTEM EVENTS */}
-          {currentTab === 'events' && (
-            <div className="max-w-4xl mx-auto space-y-6">
+              {/* System Events log */}
               <SystemEventsPanel />
             </div>
           )}
         </main>
       </div>
+
+      {/* Floating PIN Unlock Modal when operator clicks Locked button */}
+      {showPinModal && !isOperatorUnlocked && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm">
+            <PinUnlockDialog
+              roverControl={roverControl}
+              isOffline={isOffline}
+              onSuccess={() => {
+                setShowPinModal(false);
+                void refresh();
+              }}
+            />
+            <div className="text-center mt-3">
+              <button
+                onClick={() => setShowPinModal(false)}
+                className="text-xs text-text-muted hover:text-text underline"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Connect Camera Sheet Modal */}
+      <ConnectCameraSheet
+        isOpen={showCameraSheet}
+        onClose={() => setShowCameraSheet(false)}
+        cameraState={cameraState}
+        roverControl={roverControl}
+        isUnlocked={isOperatorUnlocked}
+        onUnlockRequest={() => setShowPinModal(true)}
+        onSuccess={() => void refresh()}
+        error={cameraError}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <ModernBottomTabs currentPage={currentPage} onPageChange={handlePageChange} />
     </div>
   );
 }

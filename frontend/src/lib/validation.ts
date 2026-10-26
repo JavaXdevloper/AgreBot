@@ -19,6 +19,11 @@ export function validateCameraUrl(url: string): ValidationResult {
     return { valid: false, error: 'Stream URL must not contain credentials (user:pass@)' };
   }
 
+  // Allow numeric camera device index for local webcam testing
+  if (/^\d+$/.test(trimmed)) {
+    return { valid: true, error: null };
+  }
+
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {

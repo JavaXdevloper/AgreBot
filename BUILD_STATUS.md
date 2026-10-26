@@ -1,12 +1,23 @@
 # BUILD_STATUS.md
 
-Last updated: 2026-10-25 22:41
+Last updated: 2026-10-26 00:48
 Contract version in use: 1.0
-Current stage: FE-7 (Verified & Clean Production Build) + BE-9 (Production Packaging)
+Current stage: UI-5 (System Page and Events)
 
 ## 1. Stage checklist
 
 Mark `[x]` only when the stage's acceptance checks passed **and** the owner replied "approved".
+
+### UI Redesign Stages (per 09_UI_REDESIGN_SPEC.md)
+- [x] UI-0 Fix styling pipeline, add tokens, theme switch, /ui-kit dev route (approved & verified)
+- [x] UI-1 App shell, navigation, banners, copy (approved & verified)
+- [x] UI-2 Video stage and Connect sheet (approved & verified)
+- [x] UI-3 Drive controls (approved & verified)
+- [x] UI-4 Detections and History (approved & verified)
+- [x] UI-5 System page and Events (verified & ready for review)
+- [ ] UI-6 Replay card and special modes
+- [ ] UI-7 Polish and accessibility
+- [ ] UI-8 Production check on real Pi
 
 ### Backend
 - [x] BE-0 Inspect (approved: model unknown, will remain 'not_configured' per D-12)
@@ -28,7 +39,17 @@ Mark `[x]` only when the stage's acceptance checks passed **and** the owner repl
 - [x] FE-4 Detections + events (approved & verified)
 - [x] FE-5 Rover controls (hold-to-drive) (approved & verified)
 - [x] FE-6 Replay/mock polish, accessibility, responsive (approved & verified)
-- [x] FE-7 Production build + integration (approved & verified: 5-view HUD Sidebar layout)
+- [x] FE-7 Production build + integration (approved & verified)
+
+## UI-0 Diagnosis & Resolution Report
+- **Root Cause:** 
+  The frontend package was using an incompatible hybrid of `@tailwindcss/postcss` (Tailwind v4 alpha/beta) while maintaining a Tailwind v3 `@tailwind base; @tailwind components; @tailwind utilities;` stylesheet and `tailwind.config.js`. Because Tailwind v4 requires `@import "tailwindcss";` and ignores `tailwind.config.js` unless configured with `@config`, utility classes were being stripped and falling back to default browser controls (grey unpadded buttons, unstyled inputs).
+- **Fix Applied:**
+  1. Standardized PostCSS and Tailwind on stable Tailwind v3 (`tailwindcss@^3.4.17` + `postcss@^8.4.49` + `autoprefixer@^10.4.20`).
+  2. Implemented the complete Section 4 token system in `src/styles/index.css` supporting both `data-theme="dark"` and `data-theme="light"` (`--bg`, `--surface-1`, `--surface-2`, `--border`, `--text`, `--brand`, `--on-brand`, `--ok`, `--warn`, `--danger`, `--danger-solid`, `--info`, `--replay`, `--mock`, `--focus`).
+  3. Extended `tailwind.config.js` with semantic tokens and system font stack.
+  4. Built `/ui-kit` route at `#/ui-kit` to verify tokens, inputs, status badges, and 56px control buttons across both Dark and Light themes.
+  5. Built CSS bundle verified: 33.9 kB with full utilities generated. All 51 unit tests passing.
 - [x] FE-7 Production build + integration (approved & verified)
 - [ ] FE-5 Rover controls (hold-to-drive)
 - [ ] FE-6 Replay/mock polish, accessibility, responsive

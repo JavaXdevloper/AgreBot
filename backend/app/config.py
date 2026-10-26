@@ -8,13 +8,34 @@ from dataclasses import dataclass
 from typing import Optional
 from dotenv import load_dotenv
 
+# ── Path roots (computed once at import time) ──────────────────────────────
+_THIS_FILE   = os.path.abspath(__file__)          # AgreBot/backend/app/config.py
+_APP_DIR     = os.path.dirname(_THIS_FILE)         # AgreBot/backend/app/
+_BACKEND_DIR = os.path.dirname(_APP_DIR)           # AgreBot/backend/
+_PROJECT_DIR = os.path.dirname(_BACKEND_DIR)       # AgreBot/
+
 # Load .env from backend directory explicitly
-_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_env_path = os.path.join(_backend_dir, ".env")
+_env_path = os.path.join(_BACKEND_DIR, ".env")
 if os.path.exists(_env_path):
     load_dotenv(_env_path)
 else:
     load_dotenv()
+
+
+def _resolve_model_path(env_key: str, relative_default: str) -> Optional[str]:
+    """Resolve model path from env var or relative default against project root."""
+    raw = os.getenv(env_key) or relative_default
+    if os.path.isabs(raw):
+        return raw
+    # Search order: AgreBot/ dir, backend/ dir, workspace root (parent of AgreBot/), cwd
+    _workspace = os.path.dirname(_PROJECT_DIR)
+    for base in (_PROJECT_DIR, _BACKEND_DIR, _workspace, os.getcwd()):
+        cand = os.path.join(base, raw)
+        if os.path.exists(cand):
+            return os.path.abspath(cand)
+    # Return project-root-relative path even if file not found
+    return os.path.abspath(os.path.join(_PROJECT_DIR, raw))
+
 
 @dataclass
 class Config:
@@ -22,11 +43,11 @@ class Config:
     PORT: int = int(os.getenv("PORT", "5000"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    LOG_DIR: str = os.getenv("LOG_DIR", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instance", "logs"))
-    DATABASE_PATH: str = os.getenv("DATABASE_PATH", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instance", "rover_history.db"))
+    LOG_DIR: str = os.getenv("LOG_DIR", os.path.join(_BACKEND_DIR, "instance", "logs"))
+    DATABASE_PATH: str = os.getenv("DATABASE_PATH", os.path.join(_BACKEND_DIR, "instance", "rover_history.db"))
     FRONTEND_DIST_PATH: str = os.getenv(
         "FRONTEND_DIST_PATH",
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
+        os.path.join(_PROJECT_DIR, "frontend", "dist")
     )
 
     # Hardware
@@ -41,10 +62,14 @@ class Config:
     SESSION_IDLE_MINUTES: int = int(os.getenv("SESSION_IDLE_MINUTES", "30"))
     PIN_MAX_ATTEMPTS_PER_MINUTE: int = int(os.getenv("PIN_MAX_ATTEMPTS_PER_MINUTE", "5"))
 
-    # Model
+    # Model — paths resolved at import time against AgreBot/ project root
     MODEL_ENABLED: bool = os.getenv("MODEL_ENABLED", "false").lower() in ("true", "1", "yes")
-    MODEL_PATH: Optional[str] = os.getenv("MODEL_PATH") or "ml/Crop_model/models/combined/combined_model.pth"
-    MODEL_CLASSES_PATH: Optional[str] = os.getenv("MODEL_CLASSES_PATH") or "ml/Crop_model/models/combined/class_names.json"
+    MODEL_PATH: Optional[str] = _resolve_model_path(
+        "MODEL_PATH", "ml/Crop_model/models/combined/combined_model.pth"
+    )
+    MODEL_CLASSES_PATH: Optional[str] = _resolve_model_path(
+        "MODEL_CLASSES_PATH", "ml/Crop_model/models/combined/class_names.json"
+    )
     MODEL_CONFIDENCE_THRESHOLD: float = float(os.getenv("MODEL_CONFIDENCE_THRESHOLD", "0.50"))
     INFERENCE_ENABLED: bool = os.getenv("INFERENCE_ENABLED", "true").lower() in ("true", "1", "yes")
     INFERENCE_MAX_FPS: int = int(os.getenv("INFERENCE_MAX_FPS", "2"))
