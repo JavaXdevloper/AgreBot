@@ -1,8 +1,8 @@
 # BUILD_STATUS.md
 
-Last updated: 2026-10-26 09:25
+Last updated: 2026-10-26 09:38
 Contract version in use: 1.0
-Current stage: UI-6 (Replay Card and Special Modes)
+Current stage: UI-7 (Polish and Accessibility)
 
 ## 1. Stage checklist
 
@@ -15,8 +15,8 @@ Mark `[x]` only when the stage's acceptance checks passed **and** the owner repl
 - [x] UI-3 Drive controls (approved & verified)
 - [x] UI-4 Detections and History (approved & verified)
 - [x] UI-5 System page and Events (approved & verified)
-- [x] UI-6 Replay card and special modes (verified & completed)
-- [ ] UI-7 Polish and accessibility
+- [x] UI-6 Replay card and special modes (approved & verified)
+- [x] UI-7 Polish and accessibility (verified & completed)
 - [ ] UI-8 Production check on real Pi
 
 ### Backend
@@ -73,6 +73,25 @@ Mark `[x]` only when the stage's acceptance checks passed **and** the owner repl
 ---
 
 ## 2. Stage log (newest first)
+
+### Stage UI-7 — status: verified and completed
+- **Goal:** Run comprehensive Section 12 Accessibility Audit and interface polish: verify touch target minimums (>= 44px, >= 56px primary), visible focus states, aria-live regions, text contrast, keyboard navigation, and reduced motion responsiveness.
+- **Audit Findings & Verifications:**
+  - [x] **Contrast checked in both themes:** High contrast dark tokens (`--bg`: `#0A0F0D`, `--text`: `#E8F1EC`) and light tokens (`--bg`: `#F5F8F6`, `--text`: `#0F1A14`) meet WCAG 2.2 AA/AAA requirements.
+  - [x] **Keyboard reachability & logical tab order:** Visible `:focus-visible` ring (`2px solid var(--focus)`, offset `2px`) set globally in `styles/index.css`.
+  - [x] **Labels & text alternatives:** All icon-only buttons carry `aria-label`s; camera video `<img>` has descriptive alt `"Live camera view"`.
+  - [x] **Aria regions & polite announcements:** Status alerts marked with `role="region"` / `aria-label="System status alerts"`, dialogs use `role="dialog"` with `aria-modal="true"`.
+  - [x] **Not colour-only:** Every state pairs a distinct icon with descriptive text (e.g., CheckCircle2 + "Running", AlertTriangle + "Stale", XCircle + "Error").
+  - [x] **Touch target sizing:** Primary drive and STOP targets >= 56px (`w-full h-14 sm:h-16`); secondary buttons and inputs >= 44px with >= 8px gaps.
+  - [x] **`prefers-reduced-motion`:** Explicit `@media (prefers-reduced-motion: reduce)` block in `styles/index.css` overrides transitions and animations to 0.01ms.
+  - [x] **Zero console errors/warnings:** Oxlint passes with 0 warnings, 0 errors. TypeScript compiles cleanly.
+- **Commands run and results:**
+  - `npm run lint`: 0 warnings, 0 errors across 55 files.
+  - `npm run typecheck`: Passed cleanly (0 errors).
+  - `npm test`: 7 test files passed, 51/51 tests passed.
+  - `npm run build`: Production build succeeded in 2.99s (`dist/` created).
+- **Assumptions made:** None.
+- **Blockers:** None. Ready for UI-8 production check.
 
 ### Stage UI-6 — status: verified and completed
 - **Goal:** Implement ReplayCard and special mode treatments per Section 6.11 and UI-6 specification: unmistakable replay vs live distinctions, clear lock requirements, live-stream disconnection confirmation dialog, semantic tokens compliance, and visual ribbons.
