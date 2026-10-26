@@ -1,8 +1,8 @@
 # BUILD_STATUS.md
 
-Last updated: 2026-10-26 00:48
+Last updated: 2026-10-26 09:25
 Contract version in use: 1.0
-Current stage: UI-5 (System Page and Events)
+Current stage: UI-6 (Replay Card and Special Modes)
 
 ## 1. Stage checklist
 
@@ -14,8 +14,8 @@ Mark `[x]` only when the stage's acceptance checks passed **and** the owner repl
 - [x] UI-2 Video stage and Connect sheet (approved & verified)
 - [x] UI-3 Drive controls (approved & verified)
 - [x] UI-4 Detections and History (approved & verified)
-- [x] UI-5 System page and Events (verified & ready for review)
-- [ ] UI-6 Replay card and special modes
+- [x] UI-5 System page and Events (approved & verified)
+- [x] UI-6 Replay card and special modes (verified & completed)
 - [ ] UI-7 Polish and accessibility
 - [ ] UI-8 Production check on real Pi
 
@@ -73,6 +73,25 @@ Mark `[x]` only when the stage's acceptance checks passed **and** the owner repl
 ---
 
 ## 2. Stage log (newest first)
+
+### Stage UI-6 — status: verified and completed
+- **Goal:** Implement ReplayCard and special mode treatments per Section 6.11 and UI-6 specification: unmistakable replay vs live distinctions, clear lock requirements, live-stream disconnection confirmation dialog, semantic tokens compliance, and visual ribbons.
+- **Files updated:**
+  - `AgreBot/frontend/src/components/controls/ReplayControlPanel.tsx`: Refactored all styles to use semantic token system (`bg-surface-1`, `border-border`, `text-text`, `text-text-muted`, `bg-replay/10`, `ring-replay/30`), linked plain-English copy from `STRINGS.system.replayTitle` and `STRINGS.system.noReplayVideo`, styled confirmation warning dialog and stop/start triggers.
+  - `AgreBot/frontend/src/components/camera/ProcessedVideoPanel.tsx` & `VideoStage.tsx`: Enforced replay ribbons (`REPLAY — recorded video`) and `ring-2 ring-replay` frame border on video container.
+  - `AgreBot/frontend/src/components/layout/ModernBanners.tsx`: Stacked non-dismissible `REPLAY ACTIVE` and `MOCK TEST DATA ACTIVE` warning banners across the application.
+  - `AgreBot/frontend/src/components/controls/RoverControlPanel.tsx`: Explicitly locks rover pad during replay with caption "Movement disabled in replay".
+- **Commands run and results:**
+  - `npm test`: 7 test files passed, 51/51 tests passed in 17.47s.
+  - `npm run build`: Production build succeeded in 4.51s (`dist/index.html` + `dist/assets/*.css` + `dist/assets/*.js`).
+- **Tests:**
+  - [x] Replay cannot be mistaken for live feed (prominent purple ribbon, purple container border ring, top banner).
+  - [x] Mock banner cannot be hidden when mock data is active.
+  - [x] Driving pad is clearly disabled during replay mode with explicit notice.
+  - [x] Starting replay while camera is streaming prompts confirmation modal before disconnecting live camera.
+  - [x] Replay requires PIN unlock to initiate.
+- **Assumptions made:** None.
+- **Blockers:** None. Ready for UI-7 polish & accessibility check.
 
 ### Stage BE-5 — status: completed (verified & connected)
 - **Goal:** Connect real trained PyTorch model (`AgreBot/ml/Crop_model`) to backend inference pipeline.
